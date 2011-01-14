@@ -23,4 +23,12 @@ __IMPORTANT__: Make sure to create first the directories where you want to save 
 
 If your backup dir is `D:/backup` and one of your database name is `airdb`, make sure you create first `D:/backup/airdb`. This applies to all databases you want to include.
 
+## Scheduling 
+
+When scheduling the backup task, choose either `autobackup.sh` or `autobackup.bat` depending on your platform. For Linux, you can add the task via cron by adding this on your crontab. 
+
+	0 0 * * *	/home/user/path/to/script/autobackup.sh >/dev/null 2>&1	
+
+That effectively schedules backup every midnight.
+
 Enjoy :D
