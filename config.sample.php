@@ -2,7 +2,7 @@
 
 return array(
 	'backup_dir'	=> 'D:/backup',
-	'keep_files'	=> 5,
+	'keep_files'	=> 50,
 	'db_host' 		=> 'localhost',
 	'db_user' 		=> 'root',
 	'db_passwd' 	=> 'password',
