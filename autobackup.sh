@@ -1,3 +1,3 @@
 #!/bin/sh
 
-php backup_db.php
+php /home/redadmin/db_backup/scripts/dbautobackup/backup_db.php
