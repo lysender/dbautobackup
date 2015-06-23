@@ -24,6 +24,16 @@ class Db_Tool_Backup
 	 */
 	protected $_db_host;
 
+	/**
+	 * @var string
+	 */
+	protected $_db_port;
+
+	/**
+	 * @var string
+	 */
+	protected $_db_protocol;
+
 	/** 
 	 * @var string
 	 */
@@ -119,7 +129,16 @@ class Db_Tool_Backup
 	{
 		$filename = $this->_backup_dir.'/'.$db_name.'/'.$db_name.'_'.$suffix.'.sql';
 
-		$command = 'mysqldump '.$db_name.' -u '.$this->_db_user.' -p'.$this->_db_passwd.' > '.$filename;
+		$params = array();
+		$params[] = '-h '.$this->_db_host;
+		$params[] = '--port '.$this->_db_port;
+		if ($this->_db_protocol) {
+			$params[] = '--protocol '.$this->_db_protocol;
+		}
+		$params[] = '-u '.$this->_db_user;
+		$params[] = '-p'.$this->_db_passwd;
+
+		$command = "mysqldump $db_name " . implode(' ', $params) . " > $filename";
 
 		return system($command);
 	}
