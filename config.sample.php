@@ -6,7 +6,7 @@ return array(
     'compression'   => '', // gzip, bzip2, etc
     'db_host'       => 'localhost',
     'db_port'       => '3307',
-    'db_protocol'   => 'tcp',
+    'db_protocol'   => '', // tcp, etc
     'db_user'       => 'root',
     'db_passwd'     => 'password',
     'db_names'      => array(
