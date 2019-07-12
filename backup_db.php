@@ -1,11 +1,9 @@
-<?php 
-
-date_default_timezone_set('Asia/Manila');
+<?php
 
 /** 
  * PHP script for db auto backup
  *
- * @author Lysender <theman@lysender.com>
+ * @author Lysender <leonel@lysender.com>
  */
 class Db_Tool_Backup
 {
@@ -48,6 +46,11 @@ class Db_Tool_Backup
      * @var string
      */
     protected $_db_passwd;
+
+    /**
+     * @var string
+     */
+    protected $_extra_config;
 
     /** 
      * @var array
@@ -107,11 +110,12 @@ class Db_Tool_Backup
     /**
      * Run backup
      *
-     * @return boolean true | false
+     * @throws Exception
      */
     public function backup()
     {
-        $suffix = date('Y-m-d-H-i-s');
+        $now = new DateTime('now', new DateTimeZone('UTC'));
+        $suffix = $now->format('Y-m-d-H-i-s');
 
         if ( ! empty($this->_db_names))
         {
@@ -135,20 +139,30 @@ class Db_Tool_Backup
         $filename = $this->_backup_dir.'/'.$db_name.'/'.$db_name.'_'.$suffix.'.sql';
 
         $params = array();
+
+        if (!empty($this->_extra_config)) {
+            // Allows hiding the username/password from the command line
+            // although the main goal is to just suppress the insure command warning.
+            // The username and passwords are still readable on the file, regardless.
+            $params[] = '--defaults-extra-file=' . $this->_extra_config;
+        } else {
+            // Defaults to passing username/password into the command line
+            $params[] = '-u '.$this->_db_user;
+            $params[] = '-p'.$this->_db_passwd;
+        }
+
         $params[] = '-h '.$this->_db_host;
         $params[] = '--port '.$this->_db_port;
         if ($this->_db_protocol) {
             $params[] = '--protocol '.$this->_db_protocol;
         }
-        $params[] = '-u '.$this->_db_user;
-        $params[] = '-p'.$this->_db_passwd;
 
-        $command = "mysqldump $db_name " . implode(' ', $params);
+        $command = "mysqldump " . implode(' ', $params) . ' ' . $db_name;
 
         if ($this->_compression) {
             $command .= " | {$this->_compression} > $filename.bz2";
         } else {
-            $command = "mysqldump $db_name " . implode(' ', $params) . " > $filename";
+            $command = "mysqldump " . implode(' ', $params) . " $db_name > $filename";
         }
 
         return system($command);
