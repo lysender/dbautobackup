@@ -1,10 +1,5 @@
 <?php defined('DOCROOT') or die('No direct script access.');
 
-/** 
- * Manages db backup
- *
- * @author Lysender <theman@lysender.com>
- */
 class Dbbackup
 {
 	/** 

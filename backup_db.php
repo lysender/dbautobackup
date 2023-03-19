@@ -1,10 +1,5 @@
 <?php
 
-/** 
- * PHP script for db auto backup
- *
- * @author Lysender <leonel@lysender.com>
- */
 class Db_Tool_Backup
 {
     /** 
