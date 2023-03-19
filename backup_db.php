@@ -151,6 +151,7 @@ class Db_Tool_Backup
         if ($this->_db_protocol) {
             $params[] = '--protocol '.$this->_db_protocol;
         }
+        $params[] = '--column-statistics=0';
 
         $command = "mysqldump " . implode(' ', $params) . ' ' . $db_name;
 
