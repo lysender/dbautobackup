@@ -2,12 +2,12 @@
 
 class Db_Tool_Backup
 {
-    /** 
+    /**
      * @var string
      */
     protected $_backup_dir;
 
-    /** 
+    /**
      * @var int
      */
     protected $_keep_files;
@@ -17,7 +17,7 @@ class Db_Tool_Backup
      */
     protected $_compression;
 
-    /** 
+    /**
      * @var string
      */
     protected $_db_host;
@@ -32,12 +32,12 @@ class Db_Tool_Backup
      */
     protected $_db_protocol;
 
-    /** 
+    /**
      * @var string
      */
     protected $_db_user;
 
-    /** 
+    /**
      * @var string
      */
     protected $_db_passwd;
@@ -47,12 +47,12 @@ class Db_Tool_Backup
      */
     protected $_extra_config;
 
-    /** 
+    /**
      * @var array
      */
     protected $_previous_count = array();
 
-    /** 
+    /**
      * @var array
      */
     protected $_backup_files = array();
@@ -61,11 +61,11 @@ class Db_Tool_Backup
      * Database names to backup
      * Loaded via config
      *
-     * @var array
+     * @var array|null
      */
     protected $_db_names = array();
 
-    /** 
+    /**
      * Initialize by loading the config
      *
      */
@@ -73,31 +73,28 @@ class Db_Tool_Backup
     {
         $config = $this->_get_config();
 
-        if (empty($config))
-        {
+        if (empty($config)) {
             throw new Exception('Unable to read config');
         }
 
         // Load config
-        foreach ($config as $key => $val)
-        {
-            $prop = '_'.$key;
+        foreach ($config as $key => $val) {
+            $prop = '_' . $key;
 
-            if (property_exists($this, $prop))
-            {
+            if (property_exists($this, $prop)) {
                 $this->{$prop} = $val;
             }
         }
     }
 
-    /** 
+    /**
      * Returns the config file data
      *
      * @return array
      */
     protected function _get_config()
     {
-        $file = dirname(__FILE__).'/config.php';
+        $file = dirname(__FILE__) . '/config.php';
 
         return include $file;
     }
@@ -112,17 +109,54 @@ class Db_Tool_Backup
         $now = new DateTime('now', new DateTimeZone('UTC'));
         $suffix = $now->format('Y-m-d-H-i-s');
 
-        if ( ! empty($this->_db_names))
-        {
-            foreach ($this->_db_names as $name)
-            {
+        if (is_null($this->_db_names)) {
+            // get all databases names and store in _db_names
+            $params = $this->_get_params();
+            $command = "echo 'SHOW DATABASES;' | mariadb " . implode(' ', $params) . ' ';
+            $databases = array();
+            exec($command, $databases);
+            array_shift($databases);
+            $this->_db_names = $databases;
+        }
+
+        if (is_array($this->_db_names) && !empty($this->_db_names)) {
+            foreach ($this->_db_names as $name) {
                 // Back it up
                 $this->_single_backup($name, $suffix);
             }
         }
     }
 
-    /** 
+    /**
+     * function to generate command line parameter based on config
+     *
+     * @return array
+     */
+    protected function _get_params()
+    {
+
+        $params = array();
+        if (!empty($this->_extra_config)) {
+            // Allows hiding the username/password from the command line
+            // although the main goal is to just suppress the insure command warning.
+            // The username and passwords are still readable on the file, regardless.
+            $params[] = '--defaults-extra-file=' . $this->_extra_config;
+        } else {
+            // Defaults to passing username/password into the command line
+            $params[] = '-u ' . $this->_db_user;
+            $params[] = '-p' . $this->_db_passwd;
+        }
+
+        $params[] = '-h ' . $this->_db_host;
+        $params[] = '--port ' . $this->_db_port;
+        if ($this->_db_protocol) {
+            $params[] = '--protocol ' . $this->_db_protocol;
+        }
+
+        return $params;
+    }
+
+    /**
      * Performs backup for a single database
      *
      * @param string $db_name
@@ -131,34 +165,20 @@ class Db_Tool_Backup
      */
     protected function _single_backup($db_name, $suffix)
     {
-        $filename = $this->_backup_dir.'/'.$db_name.'/'.$db_name.'_'.$suffix.'.sql';
-
-        $params = array();
-
-        if (!empty($this->_extra_config)) {
-            // Allows hiding the username/password from the command line
-            // although the main goal is to just suppress the insure command warning.
-            // The username and passwords are still readable on the file, regardless.
-            $params[] = '--defaults-extra-file=' . $this->_extra_config;
-        } else {
-            // Defaults to passing username/password into the command line
-            $params[] = '-u '.$this->_db_user;
-            $params[] = '-p'.$this->_db_passwd;
+        if (!is_dir($this->_backup_dir . '/' . $db_name . '/')) {
+            mkdir($this->_backup_dir . '/' . $db_name . '/');
         }
 
-        $params[] = '-h '.$this->_db_host;
-        $params[] = '--port '.$this->_db_port;
-        if ($this->_db_protocol) {
-            $params[] = '--protocol '.$this->_db_protocol;
-        }
-        $params[] = '--column-statistics=0';
+        $filename = $this->_backup_dir . '/' . $db_name . '/' . $db_name . '_' . $suffix . '.sql';
 
-        $command = "mysqldump " . implode(' ', $params) . ' ' . $db_name;
+
+        $params = implode(' ', $this->_get_params());
+        $command = "mariadb-dump " . $params . ' ' . $db_name;
 
         if ($this->_compression) {
             $command .= " | {$this->_compression} > $filename.bz2";
         } else {
-            $command = "mysqldump " . implode(' ', $params) . " $db_name > $filename";
+            $command = "mariadb-dump " . $params . " $db_name > $filename";
         }
 
         return system($command);
@@ -166,18 +186,17 @@ class Db_Tool_Backup
 
     /**
      * Deletes backup files that should not be kept
-     * 
+     *
      * @return boolean
      */
     public function cleanup()
     {
-        foreach ($this->_db_names as $name)
-        {
+        foreach ($this->_db_names as $name) {
             $this->_single_cleanup($name);
         }
     }
 
-    /** 
+    /**
      * Cleans up backup for a single db
      *
      * @param string $db_name
@@ -188,45 +207,39 @@ class Db_Tool_Backup
         $this->_get_backup_files($db_name);
 
         $delete_files = $this->_get_files_to_delete($db_name);
-        if ( ! empty($delete_files))
-        {
-            foreach ($delete_files as $key => $file)
-            {
-                $filename = $this->_backup_dir.'/'.$db_name.'/'.$file;
+        if (!empty($delete_files)) {
+            foreach ($delete_files as $key => $file) {
+                $filename = $this->_backup_dir . '/' . $db_name . '/' . $file;
                 $this->_delete($filename);
             }
 
-            return TRUE;
+            return true;
         }
 
-        return FALSE;
+        return false;
     }
-    
+
     /**
      * Returns all files to be deleted
-     * 
+     *
      * @param string $db_name
      * @return array $files | false
      */
     protected function _get_files_to_delete($db_name)
     {
         // Only return files that should not be kept
-        if ( ! empty($this->_backup_files[$db_name]))
-        {
+        if (!empty($this->_backup_files[$db_name])) {
             $ret = array();
 
             $count = count($this->_backup_files[$db_name]);
 
-            if ($count > $this->_keep_files)
-            {
-                for ($c = $this->_keep_files; $c < $count; $c++)
-                {
+            if ($count > $this->_keep_files) {
+                for ($c = $this->_keep_files; $c < $count; $c++) {
                     if (
-                        isset($this->_backup_files[$db_name][$c]) && 
-                        $this->_backup_files[$db_name][$c] != '.' && 
+                        isset($this->_backup_files[$db_name][$c]) &&
+                        $this->_backup_files[$db_name][$c] != '.' &&
                         $this->_backup_files[$db_name][$c] != '..'
-                    )
-                    {
+                    ) {
                         $ret[] = $this->_backup_files[$db_name][$c];
                     }
                 }
@@ -234,86 +247,81 @@ class Db_Tool_Backup
 
             return $ret;
         }
-        return FALSE;
+        return false;
     }
-    
+
     /**
      * Returns all backup files in descending order
-     * 
+     *
      * @param string $db_name
      * @return array $files | boolean false
      */
     protected function _get_backup_files($db_name)
     {
-        $dir = $this->_backup_dir.'/'.$db_name;
+        $dir = $this->_backup_dir . '/' . $db_name;
 
         $files = scandir($dir, 1);
 
-        if ( ! empty($files))
-        {
+        if (!empty($files)) {
             $this->_backup_files[$db_name] = $files;
 
             return $this->_backup_files[$db_name];
         }
-        return FALSe;
+        return false;
     }
-    
+
     /**
      * Deletes the backup file
-     * 
+     *
      * @param string $filename
      * @return boolean
      */
     protected function _delete($filename)
     {
-        if (is_file($filename))
-        {
+        if (is_file($filename)) {
             return unlink($filename);
         }
 
-        return FALSE;
+        return false;
     }
-    
+
     /**
      * Writes the counter back to the log file
-     * 
+     *
      * @param string $db_name
      * @param int $count
      * @return boolean
      */
     protected function _set_count($db_name, $count)
     {
-        $filename = dirname(__FILE__).'/'.$db_name.'_count';
+        $filename = dirname(__FILE__) . '/' . $db_name . '_count';
 
         $file = fopen($filename, 'wb');
 
-        if ($file)
-        {
+        if ($file) {
             return fwrite($file, (string) $count);
         }
 
-        return FALSE;
+        return false;
     }
-    
+
     /**
      * Retrieves the backup count from the text file
-     * 
+     *
      * @param string $db_name
      * @return int
      */
     protected function _get_count($db_name)
     {
-        $filename = dirname(__FILE__).'/'.$db_name.'_count';
+        $filename = dirname(__FILE__) . '/' . $db_name . '_count';
 
         $file = fopen($filename, 'rb');
 
-        if ($file)
-        {
+        if ($file) {
             $count = fgets($file, 4096);
 
-            if ( ! is_numeric($count))
-            {
-                $count = FALSE;
+            if (!is_numeric($count)) {
+                $count = false;
             }
 
             fclose($file);
@@ -326,6 +334,6 @@ class Db_Tool_Backup
 }
 
 // Perform backup
-$backup_manager = new Db_Tool_Backup;
+$backup_manager = new Db_Tool_Backup();
 $backup_manager->backup();
 $backup_manager->cleanup();
