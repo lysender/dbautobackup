@@ -3,3 +3,4 @@ config.php
 .buildpath
 .settings
 my.cnf
+.php-cs-fixer.cache
