@@ -165,6 +165,10 @@ class Db_Tool_Backup
      */
     protected function _single_backup($db_name, $suffix)
     {
+        if (!is_dir($this->_backup_dir . '/' . $db_name . '/')) {
+            mkdir($this->_backup_dir . '/' . $db_name . '/');
+        }
+
         $filename = $this->_backup_dir . '/' . $db_name . '/' . $db_name . '_' . $suffix . '.sql';
 
 
